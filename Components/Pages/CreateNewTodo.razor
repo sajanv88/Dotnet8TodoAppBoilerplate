@@ -1,0 +1,109 @@
+﻿@page "/createTodo";
+@page "/update/{title?}/{id:int}";
+
+@attribute [RenderModeInteractiveServer]
+
+@inject ITodoService TodoService; 
+@inject ILogger<Todo> Logger;
+@inject NavigationManager NavManager;
+
+<section class="mt-10">
+    <EditForm  Model="@TodoModel" OnValidSubmit="@Submit" FormName="todoForm">
+        <div class="mb-6"><h1 class="display-1">@(Title is not null ? "Update Todo" : "Create Todo")</h1></div>
+        <div class="mb-6">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label for="title" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Title</label>
+            <InputText @bind-Value="TodoModel.Title"
+                       id="title"
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+        </div>
+        <div class="mb-6">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label for="description" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Description</label>
+            <InputTextArea id="description" @bind-Value="TodoModel.Description" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+        </div>
+        @if (Title is not null)
+        {
+            <div class="mb-6">
+                    <div class="flex items-center space-x-2">
+                    <label for="status"
+                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+                    <input id="status"
+                           type="checkbox"
+                           @bind-value="TodoModel.IsCompleted"
+                           checked="@TodoModel.IsCompleted"
+                           class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800">
+                </div>
+            </div> 
+        }
+       
+        <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+            Save
+        </button>
+    </EditForm>
+</section>
+
+@code {
+    [Parameter]
+    public string? Title { get; set; }
+    [Parameter]
+    public int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    public Todo TodoModel { get; set; } = new Todo();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Title is not null) 
+        {
+            try
+            {
+                var todo = await TodoService.GetTodoById(Id);
+                if (todo.Status)
+                {
+                    TodoModel.Title = todo.Data!.Title;
+                    TodoModel.Description = todo.Data.Description;
+                    TodoModel.IsCompleted = todo.Data.IsCompleted;
+                    TodoModel.Id = todo.Data.Id;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogInformation(ex.Message);
+                NavManager.NavigateTo("/todo");
+
+            }
+            
+        }
+    }
+
+    private async Task Submit() 
+    {
+        if (TodoModel.Title is not null && TodoModel.Description is not null)
+        {
+            Logger.LogInformation("Model.Title - {Title}", TodoModel.Title);
+            if (Title is null)
+            {
+                await TodoService.CreateTodo(new CreateTodoDto
+                {
+                    Title = TodoModel.Title, Description = TodoModel.Description
+                });     
+            }
+            else
+            {
+                await TodoService.UpdateTodo(new UpdateTodoDto
+                {
+                    Title = TodoModel.Title,
+                    Description = TodoModel.Description,
+                    IsCompleted = TodoModel.IsCompleted
+                }, Id);     
+            }
+            TodoModel = new();
+            NavManager.NavigateTo("/todo");
+        }
+    }
+}
